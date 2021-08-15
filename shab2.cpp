@@ -8,15 +8,15 @@
 #define M_PI 3.14159265358979323846 /* pi */
 
 #include<math.h>
-int smoothx(float* q, float* xx, float* xy, int id, int jd, float* a,
-    float* b, float* c, int j, float* jac, float* drr, float* drp,
-    float* rspec, float* qv, float* dd,
-    float epsi, float gamma, float fsmach, float dt)
+int smoothx(double* q, double* xx, double* xy, int id, int jd, double* a,
+    double* b, double* c, int j, double* jac, double* drr, double* drp,
+    double* rspec, double* qv, double* dd,
+    double epsi, double gamma, double fsmach, double dt)
 {
 
-    float* rho, * u_vel, * v_vel, * t_e;
+    double* rho, * u_vel, * v_vel, * t_e;
 
-    float eratio, gm1, ggm1, eps, ra, u, v, qq, ss,
+    double eratio, gm1, ggm1, eps, ra, u, v, qq, ss,
         qav, qxx, rr, rp;
     int ib, ie, i, offset, offsetp1, offsetm1, ip, ir, n;
     eratio = 0.25 + 0.25 * pow(fsmach + 0.0001, gamma);
@@ -79,15 +79,15 @@ int smoothx(float* q, float* xx, float* xy, int id, int jd, float* a,
     return 0;
 }
 
-int smoothy(float* q, float* yx, float* yy, int id, int jd, float* a,
-    float* b, float* c, int i, float* jac, float* drr, float* drp,
-    float* rspec, float* qv, float* dd,
-    float epsi, float gamma, float fsmach, float dt)
+int smoothy(double* q, double* yx, double* yy, int id, int jd, double* a,
+    double* b, double* c, int i, double* jac, double* drr, double* drp,
+    double* rspec, double* qv, double* dd,
+    double epsi, double gamma, double fsmach, double dt)
 {
 
-    float* rho, * u_vel, * v_vel, * t_e;
+    double* rho, * u_vel, * v_vel, * t_e;
 
-    float eratio, smool, gm1, ggm1, eps, ra, u, v, qq, ss,
+    double eratio, smool, gm1, ggm1, eps, ra, u, v, qq, ss,
         qav, ssfs, qyy, rp, rr;
     int jb, je, j, offset, offsetp1, offsetm1, n,
         jp, jr;
@@ -153,15 +153,15 @@ int smoothy(float* q, float* yx, float* yy, int id, int jd, float* a,
     return 0;
 }
 
-int smooth(float* q, float* s, float* jac, float* xx, float* xy,
-    float* yx, float* yy, int id, int jd, float* s2,
-    float* rspec, float* qv, float* dd,
-    float epse, float gamma, float fsmach, float dt)
+int smooth(double* q, double* s, double* jac, double* xx, double* xy,
+    double* yx, double* yy, int id, int jd, double* s2,
+    double* rspec, double* qv, double* dd,
+    double epse, double gamma, double fsmach, double dt)
 {
 
-    float* rho, * u_vel, * v_vel, * t_e;
+    double* rho, * u_vel, * v_vel, * t_e;
 
-    float eratio, smool, gm1, ggm1, cx, cy, eps, ra, u, v, qq, ss, st,
+    double eratio, smool, gm1, ggm1, cx, cy, eps, ra, u, v, qq, ss, st,
         qav, qxx, ssfs, qyy;
     int ib, ie, jb, je, i, j, offset, offsetp1, offsetm1, ip, ir, n,
         jp, jr;
@@ -283,6 +283,147 @@ int smooth(float* q, float* s, float* jac, float* xx, float* xy,
 
     return 0;
 }
+
+int btri4s(float* a, float* b, float* c, float* f, int kd, int ks, int ke)
+{
+    /* Local variables */
+    int k, m, n, nd, md;
+
+    float c1, d1, d2, d3, d4, c2, c3, c4, b11, b21, b22, b31, b32, b33,
+        b41, b42, b43, b44, u12, u13, u14, u23, u24, u34;
+
+
+    /*   (A,B,C)F = F, F and B are overloaded, solution in F */
+
+    md = 4;
+    nd = 4;
+
+    /*   Part 1. Forward block sweep */
+
+    for (k = ks; k <= ke; k++)
+    {
+
+        /*      Step 1. Construct L in B */
+
+        if (k != ks)
+        {
+            for (m = 0; m < md; m++)
+            {
+                for (n = 0; n < nd; n++)
+                {
+                    b[k + kd * (m + md * n)] = b[k + kd * (m + md * n)]
+                        - a[k + kd * (m + md * 0)] * b[k - 1 + kd * (0 + md * n)]
+                        - a[k + kd * (m + md * 1)] * b[k - 1 + kd * (1 + md * n)]
+                        - a[k + kd * (m + md * 2)] * b[k - 1 + kd * (2 + md * n)]
+                        - a[k + kd * (m + md * 3)] * b[k - 1 + kd * (3 + md * n)];
+                }
+            }
+        }
+
+        /*      Step 2. Compute L inverse (block matrix) */
+
+        /*          A. Decompose L into L and U */
+
+        b11 = 1. / b[k + kd * (0 + md * 0)];
+        u12 = b[k + kd * (0 + md * 1)] * b11;
+        u13 = b[k + kd * (0 + md * 2)] * b11;
+        u14 = b[k + kd * (0 + md * 3)] * b11;
+        b21 = b[k + kd * (1 + md * 0)];
+        b22 = 1. / (b[k + kd * (1 + md * 1)] - b21 * u12);
+        u23 = (b[k + kd * (1 + md * 2)] - b21 * u13) * b22;
+        u24 = (b[k + kd * (1 + md * 3)] - b21 * u14) * b22;
+        b31 = b[k + kd * (2 + md * 0)];
+        b32 = b[k + kd * (2 + md * 1)] - b31 * u12;
+        b33 = 1. / (b[k + kd * (2 + md * 2)] - b31 * u13 - b32 * u23);
+        u34 = (b[k + kd * (2 + md * 3)] - b31 * u14 - b32 * u24) * b33;
+        b41 = b[k + kd * (3 + md * 0)];
+        b42 = b[k + kd * (3 + md * 1)] - b41 * u12;
+        b43 = b[k + kd * (3 + md * 2)] - b41 * u13 - b42 * u23;
+        b44 = 1. / (b[k + kd * (3 + md * 3)] - b41 * u14 - b42 * u24
+            - b43 * u34);
+
+        /*      Step 3. Solve for intermediate vector */
+
+        /*          A. Construct RHS */
+        if (k != ks)
+        {
+            for (m = 0; m < md; m++)
+            {
+                f[k + kd * m] = f[k + kd * m]
+                    - a[k + kd * (m + md * 0)] * f[k - 1 + kd * 0]
+                    - a[k + kd * (m + md * 1)] * f[k - 1 + kd * 1]
+                    - a[k + kd * (m + md * 2)] * f[k - 1 + kd * 2]
+                    - a[k + kd * (m + md * 3)] * f[k - 1 + kd * 3];
+            }
+        }
+
+        /*          B. Intermediate vector */
+
+        /*          Forward substitution */
+
+        d1 = f[k + kd * 0] * b11;
+        d2 = (f[k + kd * 1] - b21 * d1) * b22;
+        d3 = (f[k + kd * 2] - b31 * d1 - b32 * d2) * b33;
+        d4 = (f[k + kd * 3] - b41 * d1 - b42 * d2 - b43 * d3) * b44;
+
+        /*          Backward substitution */
+
+        f[k + kd * 3] = d4;
+        f[k + kd * 2] = d3 - u34 * d4;
+        f[k + kd * 1] = d2 - u23 * f[k + kd * 2] - u24 * d4;
+        f[k + kd * 0] = d1 - u12 * f[k + kd * 1] - u13 * f[k + kd * 2] - u14 * d4;
+
+        /*      Step 4. Construct U = L ** (-1) * C */
+        /*              by columns and store in B */
+
+        if (k != ke)
+        {
+            for (n = 0; n < nd; n++)
+            {
+
+                /*          Forward substitution */
+
+                c1 = c[k + kd * (0 + md * n)] * b11;
+                c2 = (c[k + kd * (1 + md * n)] - b21 * c1) * b22;
+                c3 = (c[k + kd * (2 + md * n)] - b31 * c1 - b32 * c2) *
+                    b33;
+                c4 = (c[k + kd * (3 + md * n)] - b41 * c1 - b42 * c2 -
+                    b43 * c3) * b44;
+
+                /*          Backward substitution */
+
+                b[k + kd * (3 + md * n)] = c4;
+                b[k + kd * (2 + md * n)] = c3 - u34 * c4;
+                b[k + kd * (1 + md * n)] = c2 - u23 * b[k + kd * (2 + md * n)] - u24 * c4;
+                b[k + kd * (0 + md * n)] = c1 - u12 * b[k + kd * (1 + md * n)]
+                    - u13 * b[k + kd * (2 + md * n)] - u14 * c4;
+            }
+        }
+    }
+
+    /*   Part 2. Backward block sweep */
+
+    if (ke == ks)
+    {
+        return 0;
+    }
+
+    for (k = ke - 1; k >= ks; --k)
+    {
+        for (m = 0; m < md; m++)
+        {
+            f[k + kd * m] = f[k + kd * m]
+                - b[k + kd * (m + md * 0)] * f[k + 1 + kd * 0]
+                - b[k + kd * (m + md * 1)] * f[k + 1 + kd * 1]
+                - b[k + kd * (m + md * 2)] * f[k + 1 + kd * 2]
+                - b[k + kd * (m + md * 3)] * f[k + 1 + kd * 3];
+        }
+    }
+
+    return 0;
+
+}
+
 // function that reads input parameters
 struct Mesh {
     //FSMACH (mach number in infinity), gamma = 1.4, EPSE (smoothing coefficient- around 0.06), deltaT
@@ -318,6 +459,9 @@ struct Mesh {
     double* QArr;
     double* SArr;
     double* WArr;
+    double* BArr;
+    double* AArr;
+    double* CArr;
 
     Mesh(const char* paramFilename = nullptr) : FSMACH(0.9), gamma(1.4), EPSE(0.06), deltaT(1), alpha_inf(0), imax(121), jmax(41), 
         xFilename("x.csv"), yFilename("y.csv") {
@@ -348,6 +492,9 @@ struct Mesh {
         delete QArr;
         delete SArr;
         delete WArr;
+        delete BArr;
+        delete AArr;
+        delete CArr;
     }
 
     void parseParams(const char* filename) {
@@ -418,6 +565,11 @@ struct Mesh {
     double& Q(int i, int j, int k) { return QArr[offset3D(i, j, k)]; }
     double& S(int i, int j, int k) { return SArr[offset3D(i, j, k)]; }
     double& W(int i, int j) { return WArr[offset2D(i, j)]; }
+    double& B(int i, int j, int k) { return BArr[offset3D(i, j, k)]; }
+    double& A(int i, int j, int k) { return AArr[offset3D(i, j, k)]; }
+    double& C(int i, int j, int k) { return CArr[offset3D(i, j, k)]; }
+
+
 
     int offset2D(int i, int j) {
         if (!(i > 0 && i <= jmax)) {
@@ -509,7 +661,6 @@ struct Mesh {
         }
     }
 
-
     void BoundaryConds(int i, int j, int k, int iTEL, int iTEU, int imax, int jmax) {
         double rho01, rhoTEL, rhoTEU, uTEU, uTEL, vTEU, vTEL, p0, pTEL, pTEU, Jacobian0, U;
             // Adiabetic wall: j = jmin, i = itel...iteu
@@ -566,6 +717,7 @@ struct Mesh {
             }
         }
     }
+
     void RHS(int i, int j, int k) {
         //Xi direction
         double UU, VV, p;
@@ -587,10 +739,145 @@ struct Mesh {
         // Eta direction
         for (i = 1; i < imax - 1; i++) {
             for (j = 0; j < jmax; j++) {
-                VV = 
-                W(j,0) = 
+                VV = u(i, j) * EtaX(i, j) + v(i, j) * EtaY(i, j);
+                p = (gamma -1) * (Q(i, j, 3) - 0.5 * Q(i, j, 0) * (pow(Q(i, j, 1) / Q(i, j, 0), 2) + pow(Q(i, j, 2) / Q(i, j, 0), 2)));
+                for (j = 0; j < jmax; j++) {
+                    W(j, 0) = Q(i, j, 0) * VV / Jacobian(i, j);
+                    W(j, 1) = (Q(i, j, 1) * VV + EtaX(i, j) * p) / Jacobian(i, j);
+                    W(j, 2) = (Q(i, j, 2) * VV + EtaY(i, j) * p) / Jacobian(i, j);
+                    W(j, 3) = (Q(i, j, 3) + p) * VV / Jacobian(i, j);
+                }
+                for (j = 1; j < jmax - 1; j++) {
+                    for (k = 0; k < 4; k++) {
+                        S(i, j, k) += -0.5 * (W(j + 1, k) - W(j - 1, k));
+                    }
+                }
             }
         }
+    }
+
+    void LHSX(int i, int j) {
+        double phi, theta, gamma1, gamma2, beta, kx, ky;
+        int max_ij;
+        int n, m;
+        for (i = 0; i < imax; i++) {
+            phi = 0.5 * (gamma - 1) * (pow(u(i, j), 2) + pow(v(i, j), 2));
+            kx = XiX(i, j);
+            ky = XiY(i, j);
+            theta = kx * u(i, j) + ky * v(i, j);
+            gamma1 = gamma - 1;
+            gamma2 = gamma - 2;
+            beta = gamma * Q(i, j, 3) / Q(i, j, 0) - pow(phi, 2);
+            max_ij = std::max(imax, jmax);
+
+            B(i, 0, 0) = 0;
+            B(i, 0, 1) = kx;
+            B(i, 0, 2) = ky;
+            B(i, 0, 3) = 0;
+            B(i, 1, 0) = kx * pow(phi, 2) - u(i, j) * theta;
+            B(i, 1, 1) = theta - kx * gamma2 * u(i, j);
+            B(i, 1, 2) = ky * u(i, j) - gamma1 * kx * v(i, j);
+            B(i, 1, 3) = kx * gamma1;
+            B(i, 2, 0) = ky * pow(phi, 2) - v(i, j) * theta;
+            B(i, 2, 1) = kx * v(i, j) - ky * gamma1 * u(i, j);
+            B(i, 2, 2) = theta - ky * gamma2 * v(i, j);
+            B(i, 2, 3) = ky * gamma1;
+            B(i, 3, 0) = theta * (pow(phi, 2) - beta);
+            B(i, 3, 1) = kx * beta - gamma1 * u(i, j) * theta;
+            B(i, 3, 2) = ky * beta - gamma1 * v(i, j) * theta;
+            B(i, 3, 3) = gamma * theta;
+
+            for (n = 0; n < 4; n++) {
+                for (m = 0; m < 4; m++) {
+                    for (i = 1; i < imax - 1; i++) {
+                        A(i, m, n) = -0.5 * B(i - 1, m, n);
+                        C(i, m, n) = 0.5 * B(i + 1, m, n);
+                    }
+                }
+            }
+            for (i = 1; i < imax - 1; i++) {
+                B(i, 0, 0) = 1.0;
+                B(i, 0, 1) = 0;
+                B(i, 0, 2) = 0;
+                B(i, 0, 3) = 0;
+                B(i, 1, 0) = 0;
+                B(i, 1, 1) = 1.0;
+                B(i, 1, 2) = 0;
+                B(i, 1, 3) = 0;
+                B(i, 2, 0) = 0;
+                B(i, 2, 1) = 0;
+                B(i, 2, 2) = 1.0;
+                B(i, 2, 3) = 0;
+                B(i, 3, 0) = 0;
+                B(i, 3, 1) = 0;
+                B(i, 3, 2) = 0;
+                B(i, 3, 3) = 1.0;
+            }
+        }
+    }
+
+    void LHSY(int i, int j) {
+        double phi, theta, gamma1, gamma2, beta, kx, ky;
+        int max_ij;
+        int n, m;
+        for (i = 0; i < imax; i++) {
+            phi = 0.5 * (gamma - 1) * (pow(u(i, j), 2) + pow(v(i, j), 2));
+            kx = EtaX(i, j);
+            ky = EtaY(i, j);
+            theta = kx * u(i, j) + ky * v(i, j);
+            gamma1 = gamma - 1;
+            gamma2 = gamma - 2;
+            beta = gamma * Q(i, j, 3) / Q(i, j, 0) - pow(phi, 2);
+            max_ij = std::max(imax, jmax);
+
+            B(i, 0, 0) = 0;
+            B(i, 0, 1) = kx;
+            B(i, 0, 2) = ky;
+            B(i, 0, 3) = 0;
+            B(i, 1, 0) = kx * pow(phi, 2) - u(i, j) * theta;
+            B(i, 1, 1) = theta - kx * gamma2 * u(i, j);
+            B(i, 1, 2) = ky * u(i, j) - gamma1 * kx * v(i, j);
+            B(i, 1, 3) = kx * gamma1;
+            B(i, 2, 0) = ky * pow(phi, 2) - v(i, j) * theta;
+            B(i, 2, 1) = kx * v(i, j) - ky * gamma1 * u(i, j);
+            B(i, 2, 2) = theta - ky * gamma2 * v(i, j);
+            B(i, 2, 3) = ky * gamma1;
+            B(i, 3, 0) = theta * (pow(phi, 2) - beta);
+            B(i, 3, 1) = kx * beta - gamma1 * u(i, j) * theta;
+            B(i, 3, 2) = ky * beta - gamma1 * v(i, j) * theta;
+            B(i, 3, 3) = gamma * theta;
+
+            for (n = 0; n < 4; n++) {
+                for (m = 0; m < 4; m++) {
+                    for (i = 1; i < imax - 1; i++) {
+                        A(i, m, n) = -0.5 * B(i - 1, m, n);
+                        C(i, m, n) = 0.5 * B(i + 1, m, n);
+                    }
+                }
+            }
+            for (i = 1; i < imax - 1; i++) {
+                B(i, 0, 0) = 1.0;
+                B(i, 0, 1) = 0;
+                B(i, 0, 2) = 0;
+                B(i, 0, 3) = 0;
+                B(i, 1, 0) = 0;
+                B(i, 1, 1) = 1.0;
+                B(i, 1, 2) = 0;
+                B(i, 1, 3) = 0;
+                B(i, 2, 0) = 0;
+                B(i, 2, 1) = 0;
+                B(i, 2, 2) = 1.0;
+                B(i, 2, 3) = 0;
+                B(i, 3, 0) = 0;
+                B(i, 3, 1) = 0;
+                B(i, 3, 2) = 0;
+                B(i, 3, 3) = 1.0;
+            }
+        }
+    }
+
+    void LoadDX(int i, int j) {
+
     }
 
     void solve() {
