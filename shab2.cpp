@@ -880,6 +880,14 @@ struct Mesh {
 
     }
 
+    void update() {
+
+    }
+
+    void step() {
+
+    }
+
     void solve() {
 
     }
