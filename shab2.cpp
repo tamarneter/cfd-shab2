@@ -314,10 +314,10 @@ struct Mesh {
     double* uArr;
     double* vArr;
     double* rhoArr;
-    double* pArr;
     double* eArr;
     double* QArr;
     double* SArr;
+    double* WArr;
 
     Mesh(const char* paramFilename = nullptr) : FSMACH(0.9), gamma(1.4), EPSE(0.06), deltaT(1), alpha_inf(0), imax(121), jmax(41), 
         xFilename("x.csv"), yFilename("y.csv") {
@@ -344,10 +344,10 @@ struct Mesh {
         delete uArr;
         delete vArr;
         delete rhoArr;
-        delete pArr;
         delete eArr;
         delete QArr;
         delete SArr;
+        delete WArr;
     }
 
     void parseParams(const char* filename) {
@@ -414,10 +414,10 @@ struct Mesh {
     double& u(int i, int j) { return uArr[offset2D(i, j)]; }
     double& v(int i, int j) { return vArr[offset2D(i, j)]; }
     double& rho(int i, int j) { return rhoArr[offset2D(i, j)]; }
-    double& p(int i, int j) { return pArr[offset2D(i, j)]; }
     double& e(int i, int j) { return eArr[offset2D(i, j)]; }
     double& Q(int i, int j, int k) { return QArr[offset3D(i, j, k)]; }
     double& S(int i, int j, int k) { return SArr[offset3D(i, j, k)]; }
+    double& W(int i, int j) { return WArr[offset2D(i, j)]; }
 
     int offset2D(int i, int j) {
         if (!(i > 0 && i <= jmax)) {
@@ -511,15 +511,15 @@ struct Mesh {
 
 
     void BoundaryConds(int i, int j, int k, int iTEL, int iTEU, int imax, int jmax) {
-        double rho01, rhoTEL, rhoTEU, uTEU, uTEL, vTEU, vTEL, p0, pTEL, pTEU, Jacobian0, U1;
+        double rho01, rhoTEL, rhoTEU, uTEU, uTEL, vTEU, vTEL, p0, pTEL, pTEU, Jacobian0, U;
             // Adiabetic wall: j = jmin, i = itel...iteu
             for (i = iTEL; i <= iTEU; i++) {
                 Q(i, 0, 0) = Q(i, 1, 0);
                 rho01 = EtaY(i, 0) * XiX(i, 0) - XiY(i, 0) * EtaX(i, 0);
-                U1 = XiX(i, 1) * Q(i, 1, 1) / rho01 + XiY(i, 1) * Q(i, 1, 2) / rho01;
-                Q(i, 0, 1) = EtaY(i, 0) * U1 * rho01 / Jacobian0;
-                Q(i, 0, 2) = -EtaX(i, 0) * U1 * rho01 / Jacobian0;
-                p0 = (gamma - 1) * (Q(i, 1, 3) - 0.5 * rho01 * (pow(Q(i, 1, 1) / rho01, 2) + pow(Q(i, 1, 2) / rho01, 2));
+                U = XiX(i, 1) * Q(i, 1, 1) / rho01 + XiY(i, 1) * Q(i, 1, 2) / rho01;
+                Q(i, 0, 1) = EtaY(i, 0) * U * rho01 / Jacobian0;
+                Q(i, 0, 2) = -EtaX(i, 0) * U * rho01 / Jacobian0;
+                p0 = (gamma - 1) * (Q(i, 1, 3) - 0.5 * rho01 * (pow(Q(i, 1, 1) / rho01, 2) + pow(Q(i, 1, 2) / rho01, 2)));
                 Q(i, 0, 3) = p0 / (gamma - 1) + 0.5 * rho01 * (pow(Q(i, 0, 1) / rho01, 2) + pow(Q(i, 0, 2) / rho01, 2));
         }
         // Trailing Edeg
@@ -543,7 +543,7 @@ struct Mesh {
         // Wake
         for (i = 0; i < iTEL; i++) {
             for (k = 0; k < 4; k++) {
-                Q(i, 0, k) = 0.5 * (Q(i, 1, k) + Q(imax - 1, 1, k);
+                Q(i, 0, k) = 0.5 * (Q(i, 1, k) + Q(imax - 1, 1, k));
                 Q(imax - -1 - i, 0, k) = Q(i, 0, k);
             }
         }
@@ -557,13 +557,38 @@ struct Mesh {
 
     }
 
+    void ZeroRHS(int i, int j, int k) {
+        for (i = 0; i < imax; i++) {
+            for (j = 0; j < jmax; j++) {
+                for (k = 0; k < 4; k++) {
+                    S(i, j, k) = 0;
+                }
+            }
+        }
+    }
     void RHS(int i, int j, int k) {
-        // dim S == dim Q
-        S(i, j, k) = 0; // Zero RHS
         //Xi direction
+        double UU, VV, p;
         for (j = 1; j < jmax - 1; j++) {
             for (i = 0; i < imax; i++) {
-
+                UU = u(i, j) * XiX(i, j) + v(i, j) * XiY(i, j);
+                p = (gamma - 1) * (Q(i, j, 3) - 0.5 * Q(i, j, 0) * (pow(Q(i, j, 1) / Q(i, j, 0), 2) + pow(Q(i, j, 2) / Q(i, j, 0), 2)));
+                W(i, 0) = Q(i, j, 0) * UU / Jacobian(i, j);
+                W(i, 1) = (Q(i, j, 1) * UU + XiX(i, j) * p) / Jacobian(i, j);
+                W(i, 2) = (Q(i, j, 2) * UU + XiY(i, j) * p) / Jacobian(i, j);
+                W(i, 3) = (Q(i, j, 3) + p) * UU / Jacobian(i, j);
+            }
+            for (i = 1; i < imax - 1; i++) {
+                for (k = 0; k < 4; k++) {
+                    S(i, j, k) += -0.5*(W(i + 1, k) - W(i - 1, k));
+                }
+            }
+        }
+        // Eta direction
+        for (i = 1; i < imax - 1; i++) {
+            for (j = 0; j < jmax; j++) {
+                VV = 
+                W(j,0) = 
             }
         }
     }
