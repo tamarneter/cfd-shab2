@@ -462,6 +462,8 @@ struct Mesh {
     double* BArr;
     double* AArr;
     double* CArr;
+    double* s2;
+    double* DArr;
 
     Mesh(const char* paramFilename = nullptr) : FSMACH(0.9), gamma(1.4), EPSE(0.06), deltaT(1), alpha_inf(0), imax(121), jmax(41), 
         xFilename("x.csv"), yFilename("y.csv") {
@@ -495,6 +497,8 @@ struct Mesh {
         delete BArr;
         delete AArr;
         delete CArr;
+        delete s2;
+        delete DArr;
     }
 
     void parseParams(const char* filename) {
@@ -568,6 +572,8 @@ struct Mesh {
     double& B(int i, int j, int k) { return BArr[offset3D(i, j, k)]; }
     double& A(int i, int j, int k) { return AArr[offset3D(i, j, k)]; }
     double& C(int i, int j, int k) { return CArr[offset3D(i, j, k)]; }
+    double& s2(int i, int j) { return s2[offset2D(i, j)]; }
+    double& D(int i, int j) { return DArr[offset2D(i, j)]; }
 
 
 
@@ -693,7 +699,7 @@ struct Mesh {
         }
         // Wake
         for (int i = 0; i < iTEL; i++) {
-            for (k = 0; k < 4; k++) {
+            for (int k = 0; k < 4; k++) {
                 Q(i, 0, k) = 0.5 * (Q(i, 1, k) + Q(imax - 1, 1, k));
                 Q(imax - -1 - i, 0, k) = Q(i, 0, k);
             }
@@ -731,7 +737,7 @@ struct Mesh {
                 W(i, 3) = (Q(i, j, 3) + p) * UU / Jacobian(i, j);
             }
             for (int i = 1; i < imax - 1; i++) {
-                for (k = 0; k < 4; k++) {
+                for (int k = 0; k < 4; k++) {
                     S(i, j, k) += -0.5*(W(i + 1, k) - W(i - 1, k));
                 }
             }
@@ -756,7 +762,7 @@ struct Mesh {
         }
     }
 
-    void LHSX() {
+    void LHSX(int j) {
         double phi, theta, gamma1, gamma2, beta, kx, ky;
         int max_ij;
         int n, m;
@@ -789,7 +795,7 @@ struct Mesh {
 
             for (n = 0; n < 4; n++) {
                 for (m = 0; m < 4; m++) {
-                    for (i = 1; i < imax - 1; i++) {
+                    for (int i = 1; i < imax - 1; i++) {
                         A(i, m, n) = -0.5 * B(i - 1, m, n);
                         C(i, m, n) = 0.5 * B(i + 1, m, n);
                     }
@@ -816,11 +822,11 @@ struct Mesh {
         }
     }
 
-    void LHSY() {
+    void LHSY(int i) {
         double phi, theta, gamma1, gamma2, beta, kx, ky;
         int max_ij;
         int n, m;
-        for (int i = 0; i < imax; i++) {
+        for (int j = 0; i < jmax; j++) {
             phi = 0.5 * (gamma - 1) * (pow(u(i, j), 2) + pow(v(i, j), 2));
             kx = EtaX(i, j);
             ky = EtaY(i, j);
@@ -849,34 +855,34 @@ struct Mesh {
 
             for (n = 0; n < 4; n++) {
                 for (m = 0; m < 4; m++) {
-                    for (i = 1; i < imax - 1; i++) {
-                        A(i, m, n) = -0.5 * B(i - 1, m, n);
-                        C(i, m, n) = 0.5 * B(i + 1, m, n);
+                    for (int j = 1; j < jmax - 1; j++) {
+                        A(j, m, n) = -0.5 * B(j - 1, m, n);
+                        C(j, m, n) = 0.5 * B(j + 1, m, n);
                     }
                 }
             }
-            for (i = 1; i < imax - 1; i++) {
-                B(i, 0, 0) = 1.0;
-                B(i, 0, 1) = 0;
-                B(i, 0, 2) = 0;
-                B(i, 0, 3) = 0;
-                B(i, 1, 0) = 0;
-                B(i, 1, 1) = 1.0;
-                B(i, 1, 2) = 0;
-                B(i, 1, 3) = 0;
-                B(i, 2, 0) = 0;
-                B(i, 2, 1) = 0;
-                B(i, 2, 2) = 1.0;
-                B(i, 2, 3) = 0;
-                B(i, 3, 0) = 0;
-                B(i, 3, 1) = 0;
-                B(i, 3, 2) = 0;
-                B(i, 3, 3) = 1.0;
+            for (j = 1; j < jmax - 1; j++) {
+                B(j, 0, 0) = 1.0;
+                B(j, 0, 1) = 0;
+                B(j, 0, 2) = 0;
+                B(j, 0, 3) = 0;
+                B(j, 1, 0) = 0;
+                B(j, 1, 1) = 1.0;
+                B(j, 1, 2) = 0;
+                B(j, 1, 3) = 0;
+                B(j, 2, 0) = 0;
+                B(j, 2, 1) = 0;
+                B(j, 2, 2) = 1.0;
+                B(j, 2, 3) = 0;
+                B(j, 3, 0) = 0;
+                B(j, 3, 1) = 0;
+                B(j, 3, 2) = 0;
+                B(j, 3, 3) = 1.0;
             }
         }
     }
 
-    void Advance() {
+    void advance() {
         // updates the solution
         for (int j = 0; j < jmax; j++) {
             for (int i = 0; i < imax; i++) {
@@ -888,7 +894,46 @@ struct Mesh {
     }
 
     void step(int i, int j, int k) {
-
+        ZeroRHS();
+        RHS();
+        smooth(Q, S, Jacobian, XiX, XiY,
+            EtaX, EtaY, imax, jmax, *s2,
+            *rspec, *qv, *dd, 
+            espec, gamma, FSMACH, deltaT);
+        
+        // Xi 
+        for (int j = 0; j < jmax; j++) {
+            LHSX(j);
+            smoothx();
+            for (int k = 0; k < 4; k++) {
+                for (int i = 0; i < imax; i++) {
+                    D(i, k) = S(i, j, k);
+                }
+            }
+            btri4s(A, B, C, D, imax + 1, 0, imax - 1);
+            for (int k = 0; k < 4; k++) {
+                for (int i = 0; i < imax; i++) {
+                    S(i, j, k) = D(i, k);
+                }
+            }
+        }
+        // Eta 
+        for (int i = 0; i < imax; i++) {
+            LHSY(i);
+            smoothy();
+            for (int k = 0; k < 4; k++) {
+                for (int j = 0; j < jmax; j++) {
+                    D(j, k) = S(i, j, k);
+                }
+            }
+            btri4s(A, B, C, D, jmax + 1, 0, jmax - 1);
+            for (int k = 0; k < 4; k++) {
+                for (int j = 0; j < jmax; j++) {
+                    S(i, j, k) = D(j, k);
+                }
+            }
+        }
+        advance();
     }
 
     void solve() {
