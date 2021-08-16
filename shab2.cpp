@@ -587,13 +587,13 @@ struct Mesh {
         return (k * imax + (j - 1) * jmax + (i - 1));
     }
 
-    void FreeStream(int i, int j) {
+    void FreeStream() {
         double a;
         double e;
         a = sqrt(gamma * p_inf) / rho_inf;
         e = p_inf / (gamma - 1) + 0.5 * rho_inf * pow(FSMACH * a, 2);
-        for (i = 0; i < imax; i++) {
-            for (j = 0; j < jmax; j++) {
+        for (int i = 0; i < imax; i++) {
+            for (int j = 0; j < jmax; j++) {
                 u(i, j) = FSMACH * a * cos(alpha_inf);
                 v(i, j) = FSMACH * a * sin(alpha_inf);
                 Q(i, j, 0) = rho_inf;
@@ -661,10 +661,10 @@ struct Mesh {
         }
     }
 
-    void BoundaryConds(int i, int j, int k, int iTEL, int iTEU, int imax, int jmax) {
+    void BoundaryConds(int iTEL, int iTEU, int imax, int jmax) {
         double rho01, rhoTEL, rhoTEU, uTEU, uTEL, vTEU, vTEL, p0, pTEL, pTEU, Jacobian0, U;
             // Adiabetic wall: j = jmin, i = itel...iteu
-            for (i = iTEL; i <= iTEU; i++) {
+            for (int i = iTEL; i <= iTEU; i++) {
                 Q(i, 0, 0) = Q(i, 1, 0);
                 rho01 = EtaY(i, 0) * XiX(i, 0) - XiY(i, 0) * EtaX(i, 0);
                 U = XiX(i, 1) * Q(i, 1, 1) / rho01 + XiY(i, 1) * Q(i, 1, 2) / rho01;
@@ -688,19 +688,19 @@ struct Mesh {
         Q(iTEL, 0, 2) = 0.5 * (vTEL + vTEU);
         Q(iTEL, 0, 3) = 0.5 * (pTEL + pTEU);
 
-        for (k = 0; k < 4; k++) {
+        for (int k = 0; k < 4; k++) {
             Q(iTEU, 0, k) = Q(iTEL, 0, k);
         }
         // Wake
-        for (i = 0; i < iTEL; i++) {
+        for (int i = 0; i < iTEL; i++) {
             for (k = 0; k < 4; k++) {
                 Q(i, 0, k) = 0.5 * (Q(i, 1, k) + Q(imax - 1, 1, k));
                 Q(imax - -1 - i, 0, k) = Q(i, 0, k);
             }
         }
         // outflow
-        for (j = 0; j < jmax; j++) {
-            for (k = 0; k < 4; k++) {
+        for (int j = 0; j < jmax; j++) {
+            for (int k = 0; k < 4; k++) {
                 Q(0, j, k) = Q(1, j, k);
                 Q(imax - 1, j, k) = Q(imax - 2, j, k);
             }
@@ -708,21 +708,21 @@ struct Mesh {
 
     }
 
-    void ZeroRHS(int i, int j, int k) {
-        for (i = 0; i < imax; i++) {
-            for (j = 0; j < jmax; j++) {
-                for (k = 0; k < 4; k++) {
+    void ZeroRHS() {
+        for (int i = 0; i < imax; i++) {
+            for (int j = 0; j < jmax; j++) {
+                for (int k = 0; k < 4; k++) {
                     S(i, j, k) = 0;
                 }
             }
         }
     }
 
-    void RHS(int i, int j, int k) {
+    void RHS() {
         //Xi direction
         double UU, VV, p;
-        for (j = 1; j < jmax - 1; j++) {
-            for (i = 0; i < imax; i++) {
+        for (int j = 1; j < jmax - 1; j++) {
+            for (int i = 0; i < imax; i++) {
                 UU = u(i, j) * XiX(i, j) + v(i, j) * XiY(i, j);
                 p = (gamma - 1) * (Q(i, j, 3) - 0.5 * Q(i, j, 0) * (pow(Q(i, j, 1) / Q(i, j, 0), 2) + pow(Q(i, j, 2) / Q(i, j, 0), 2)));
                 W(i, 0) = Q(i, j, 0) * UU / Jacobian(i, j);
@@ -730,25 +730,25 @@ struct Mesh {
                 W(i, 2) = (Q(i, j, 2) * UU + XiY(i, j) * p) / Jacobian(i, j);
                 W(i, 3) = (Q(i, j, 3) + p) * UU / Jacobian(i, j);
             }
-            for (i = 1; i < imax - 1; i++) {
+            for (int i = 1; i < imax - 1; i++) {
                 for (k = 0; k < 4; k++) {
                     S(i, j, k) += -0.5*(W(i + 1, k) - W(i - 1, k));
                 }
             }
         }
         // Eta direction
-        for (i = 1; i < imax - 1; i++) {
-            for (j = 0; j < jmax; j++) {
+        for (int i = 1; i < imax - 1; i++) {
+            for (int j = 0; j < jmax; j++) {
                 VV = u(i, j) * EtaX(i, j) + v(i, j) * EtaY(i, j);
                 p = (gamma -1) * (Q(i, j, 3) - 0.5 * Q(i, j, 0) * (pow(Q(i, j, 1) / Q(i, j, 0), 2) + pow(Q(i, j, 2) / Q(i, j, 0), 2)));
-                for (j = 0; j < jmax; j++) {
+                for (int j = 0; j < jmax; j++) {
                     W(j, 0) = Q(i, j, 0) * VV / Jacobian(i, j);
                     W(j, 1) = (Q(i, j, 1) * VV + EtaX(i, j) * p) / Jacobian(i, j);
                     W(j, 2) = (Q(i, j, 2) * VV + EtaY(i, j) * p) / Jacobian(i, j);
                     W(j, 3) = (Q(i, j, 3) + p) * VV / Jacobian(i, j);
                 }
-                for (j = 1; j < jmax - 1; j++) {
-                    for (k = 0; k < 4; k++) {
+                for (int j = 1; j < jmax - 1; j++) {
+                    for (int k = 0; k < 4; k++) {
                         S(i, j, k) += -0.5 * (W(j + 1, k) - W(j - 1, k));
                     }
                 }
@@ -756,11 +756,11 @@ struct Mesh {
         }
     }
 
-    void LHSX(int i, int j) {
+    void LHSX() {
         double phi, theta, gamma1, gamma2, beta, kx, ky;
         int max_ij;
         int n, m;
-        for (i = 0; i < imax; i++) {
+        for (int i = 0; i < imax; i++) {
             phi = 0.5 * (gamma - 1) * (pow(u(i, j), 2) + pow(v(i, j), 2));
             kx = XiX(i, j);
             ky = XiY(i, j);
@@ -816,11 +816,11 @@ struct Mesh {
         }
     }
 
-    void LHSY(int i, int j) {
+    void LHSY() {
         double phi, theta, gamma1, gamma2, beta, kx, ky;
         int max_ij;
         int n, m;
-        for (i = 0; i < imax; i++) {
+        for (int i = 0; i < imax; i++) {
             phi = 0.5 * (gamma - 1) * (pow(u(i, j), 2) + pow(v(i, j), 2));
             kx = EtaX(i, j);
             ky = EtaY(i, j);
@@ -876,15 +876,18 @@ struct Mesh {
         }
     }
 
-    void LoadDX(int i, int j) {
-
+    void Advance() {
+        // updates the solution
+        for (int j = 0; j < jmax; j++) {
+            for (int i = 0; i < imax; i++) {
+                for (int k = 0; k < 4; k++) {
+                    Q(i, j, k) += S(i, j, k) * Jacobian(i, j);
+                }
+            }
+        }
     }
 
-    void update() {
-
-    }
-
-    void step() {
+    void step(int i, int j, int k) {
 
     }
 
