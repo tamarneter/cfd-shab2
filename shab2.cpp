@@ -284,7 +284,7 @@ int smooth(double* q, double* s, double* jac, double* xx, double* xy,
     return 0;
 }
 
-int btri4s(float* a, float* b, float* c, float* f, int kd, int ks, int ke)
+int btri4s(double* a, double* b, double* c, double* f, int kd, int ks, int ke)
 {
     /* Local variables */
     int k, m, n, nd, md;
@@ -464,6 +464,11 @@ struct Mesh {
     double* CArr;
     double* s2;
     double* DArr;
+    double* rspec;
+    double* qv;
+    double* dd;
+    double* drr;
+    double* drp;
 
     Mesh(const char* paramFilename = nullptr) : FSMACH(0.9), gamma(1.4), EPSE(0.06), deltaT(1), alpha_inf(0), imax(121), jmax(41), 
         xFilename("x.csv"), yFilename("y.csv") {
@@ -472,6 +477,33 @@ struct Mesh {
         }
         xArr = parseCSV(xFilename.c_str());
         yArr = parseCSV(yFilename.c_str());
+        xXiArr = (double*)malloc((unsigned)(imax * jmax) * sizeof(double));
+        xEtaArr = (double*)malloc((unsigned)(imax * jmax) * sizeof(double));
+        yXiArr = (double*)malloc((unsigned)(imax * jmax) * sizeof(double));
+        yEtaArr = (double*)malloc((unsigned)(imax * jmax) * sizeof(double));
+        JacobianArr = (double*)malloc((unsigned)(imax * jmax) * sizeof(double));
+        invJacobianArr = (double*)malloc((unsigned)(imax * jmax) * sizeof(double));
+        XiXArr = (double*)malloc((unsigned)(imax * jmax) * sizeof(double));
+        XiYArr = (double*)malloc((unsigned)(imax * jmax) * sizeof(double));
+        EtaXArr = (double*)malloc((unsigned)(imax * jmax) * sizeof(double));
+        EtaYArr = (double*)malloc((unsigned)(imax * jmax) * sizeof(double));
+        uArr = (double*)malloc((unsigned)(imax * jmax) * sizeof(double));
+        vArr = (double*)malloc((unsigned)(imax * jmax) * sizeof(double));
+        rhoArr = (double*)malloc((unsigned)(imax * jmax) * sizeof(double));
+        eArr = (double*)malloc((unsigned)(imax * jmax) * sizeof(double));
+        QArr = (double*)malloc((unsigned)(imax * jmax * 4) * sizeof(double));
+        SArr = (double*)malloc((unsigned)(imax * jmax * 4) * sizeof(double));
+        WArr = (double*)malloc((unsigned)(imax * 4) * sizeof(double));
+        BArr = (double*)malloc((unsigned)(std::max(imax, jmax) * 16) * sizeof(double));
+        AArr = (double*)malloc((unsigned)(std::max(imax, jmax) * 16) * sizeof(double));
+        CArr = (double*)malloc((unsigned)(std::max(imax, jmax) * 16) * sizeof(double));
+        s2 = (double*)malloc((unsigned)(std::max(imax, jmax)) * sizeof(double));
+        DArr = (double*)malloc((unsigned)(std::max(imax, jmax) * 4) * sizeof(double));
+        rspec = (double*)malloc((unsigned)(std::max(imax, jmax)) * sizeof(double));
+        qv = (double*)malloc((unsigned)(std::max(imax, jmax)) * sizeof(double));
+        dd = (double*)malloc((unsigned)(std::max(imax, jmax)) * sizeof(double));
+        drr = (double*)malloc((unsigned)(std::max(imax, jmax)) * sizeof(double));
+        drp = (double*)malloc((unsigned)(std::max(imax, jmax)) * sizeof(double));
     }
 
     ~Mesh() {
@@ -499,6 +531,11 @@ struct Mesh {
         delete CArr;
         delete s2;
         delete DArr;
+        delete rspec;
+        delete qv;
+        delete dd;
+        delete drr;
+        delete drp;
     }
 
     void parseParams(const char* filename) {
@@ -893,7 +930,7 @@ struct Mesh {
         }
     }
 
-    void step(int i, int j, int k) {
+    void step() {
         ZeroRHS();
         RHS();
         smooth(Q, S, Jacobian, XiX, XiY,
