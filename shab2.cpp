@@ -427,14 +427,16 @@ int btri4s(double* a, double* b, double* c, double* f, int kd, int ks, int ke)
 // function that reads input parameters
 struct Mesh {
     //FSMACH (mach number in infinity), gamma = 1.4, EPSE (smoothing coefficient- around 0.06), deltaT
-    double FSMACH;              // = 0.9;
-    double p_inf;
+    double FSMACH;              // Mach number at infinity// = 0.9;
+    double p_inf;               // pressure at infinity
     double gamma;               // = 1.4;
     double EPSE;                // = 0.06;
     double deltaT;              // = 1;
-    double alpha_inf;               // = 0;
+    double alpha_inf;           // = 0;
     double rho_inf;
-
+    int iTEL;
+    int iTEU;
+    int iLE;
     const int imax;             // = 121;
     const int jmax;             // = 41;
 
@@ -462,7 +464,7 @@ struct Mesh {
     double* BArr;
     double* AArr;
     double* CArr;
-    double* s2;
+    double* s2Arr;
     double* DArr;
     double* rspec;
     double* qv;
@@ -497,7 +499,7 @@ struct Mesh {
         BArr = (double*)malloc((unsigned)(std::max(imax, jmax) * 16) * sizeof(double));
         AArr = (double*)malloc((unsigned)(std::max(imax, jmax) * 16) * sizeof(double));
         CArr = (double*)malloc((unsigned)(std::max(imax, jmax) * 16) * sizeof(double));
-        s2 = (double*)malloc((unsigned)(std::max(imax, jmax)) * sizeof(double));
+        s2Arr = (double*)malloc((unsigned)(std::max(imax, jmax)) * sizeof(double));
         DArr = (double*)malloc((unsigned)(std::max(imax, jmax) * 4) * sizeof(double));
         rspec = (double*)malloc((unsigned)(std::max(imax, jmax)) * sizeof(double));
         qv = (double*)malloc((unsigned)(std::max(imax, jmax)) * sizeof(double));
@@ -529,7 +531,7 @@ struct Mesh {
         delete BArr;
         delete AArr;
         delete CArr;
-        delete s2;
+        delete s2Arr;
         delete DArr;
         delete rspec;
         delete qv;
@@ -609,7 +611,7 @@ struct Mesh {
     double& B(int i, int j, int k) { return BArr[offset3D(i, j, k)]; }
     double& A(int i, int j, int k) { return AArr[offset3D(i, j, k)]; }
     double& C(int i, int j, int k) { return CArr[offset3D(i, j, k)]; }
-    double& s2(int i, int j) { return s2[offset2D(i, j)]; }
+    double& s2(int i, int j) { return s2Arr[offset2D(i, j)]; }
     double& D(int i, int j) { return DArr[offset2D(i, j)]; }
 
 
@@ -623,11 +625,11 @@ struct Mesh {
             std::cout << "got bad j = " << j << std::endl;
             assert(true);
         }
-        return (j - 1) * jmax + (i - 1);
+        return j * jmax + i;
     }
 
     int offset3D(int i, int j, int k) {
-        return (k * imax + (j - 1) * jmax + (i - 1));
+        return (k * imax + j * jmax + i);
     }
 
     void FreeStream() {
@@ -704,17 +706,17 @@ struct Mesh {
         }
     }
 
-    void BoundaryConds(int iTEL, int iTEU, int imax, int jmax) {
+    void BoundaryConds() {
         double rho01, rhoTEL, rhoTEU, uTEU, uTEL, vTEU, vTEL, p0, pTEL, pTEU, Jacobian0, U;
-            // Adiabetic wall: j = jmin, i = itel...iteu
-            for (int i = iTEL; i <= iTEU; i++) {
-                Q(i, 0, 0) = Q(i, 1, 0);
-                rho01 = EtaY(i, 0) * XiX(i, 0) - XiY(i, 0) * EtaX(i, 0);
-                U = XiX(i, 1) * Q(i, 1, 1) / rho01 + XiY(i, 1) * Q(i, 1, 2) / rho01;
-                Q(i, 0, 1) = EtaY(i, 0) * U * rho01 / Jacobian0;
-                Q(i, 0, 2) = -EtaX(i, 0) * U * rho01 / Jacobian0;
-                p0 = (gamma - 1) * (Q(i, 1, 3) - 0.5 * rho01 * (pow(Q(i, 1, 1) / rho01, 2) + pow(Q(i, 1, 2) / rho01, 2)));
-                Q(i, 0, 3) = p0 / (gamma - 1) + 0.5 * rho01 * (pow(Q(i, 0, 1) / rho01, 2) + pow(Q(i, 0, 2) / rho01, 2));
+        // Adiabetic wall: j = jmin, i = itel...iteu
+        for (int i = iTEL; i <= iTEU; i++) {
+            Q(i, 0, 0) = Q(i, 1, 0);
+            rho01 = EtaY(i, 0) * XiX(i, 0) - XiY(i, 0) * EtaX(i, 0);
+            U = XiX(i, 1) * Q(i, 1, 1) / rho01 + XiY(i, 1) * Q(i, 1, 2) / rho01;
+            Q(i, 0, 1) = EtaY(i, 0) * U * rho01 / Jacobian0;
+            Q(i, 0, 2) = -EtaX(i, 0) * U * rho01 / Jacobian0;
+            p0 = (gamma - 1) * (Q(i, 1, 3) - 0.5 * rho01 * (pow(Q(i, 1, 1) / rho01, 2) + pow(Q(i, 1, 2) / rho01, 2)));
+            Q(i, 0, 3) = p0 / (gamma - 1) + 0.5 * rho01 * (pow(Q(i, 0, 1) / rho01, 2) + pow(Q(i, 0, 2) / rho01, 2));
         }
         // Trailing Edeg
         rhoTEL = Q(iTEL, 0, 0);
@@ -933,21 +935,24 @@ struct Mesh {
     void step() {
         ZeroRHS();
         RHS();
-        smooth(Q, S, Jacobian, XiX, XiY,
-            EtaX, EtaY, imax, jmax, *s2,
-            *rspec, *qv, *dd, 
-            espec, gamma, FSMACH, deltaT);
+        smooth(QArr, SArr, JacobianArr, XiXArr, XiYArr,
+            EtaXArr, EtaYArr, imax, jmax, s2Arr,
+            rspec, qv, dd,
+            EPSE, gamma, FSMACH, deltaT);
         
         // Xi 
         for (int j = 0; j < jmax; j++) {
             LHSX(j);
-            smoothx();
+            smoothx(QArr, XiXArr, XiYArr, imax, jmax, AArr,
+                BArr, CArr, j, JacobianArr, drr, drp,
+                rspec, qv, dd,
+                EPSE, gamma, FSMACH, deltaT);
             for (int k = 0; k < 4; k++) {
                 for (int i = 0; i < imax; i++) {
                     D(i, k) = S(i, j, k);
                 }
             }
-            btri4s(A, B, C, D, imax + 1, 0, imax - 1);
+            btri4s(AArr, BArr, CArr, DArr, imax, 0, imax);
             for (int k = 0; k < 4; k++) {
                 for (int i = 0; i < imax; i++) {
                     S(i, j, k) = D(i, k);
@@ -957,13 +962,16 @@ struct Mesh {
         // Eta 
         for (int i = 0; i < imax; i++) {
             LHSY(i);
-            smoothy();
+            smoothy(QArr, EtaXArr, EtaYArr, imax, jmax, AArr,
+                BArr, CArr, j, JacobianArr, drr, drp,
+                rspec, qv, dd,
+                EPSE, gamma, FSMACH, deltaT);
             for (int k = 0; k < 4; k++) {
                 for (int j = 0; j < jmax; j++) {
                     D(j, k) = S(i, j, k);
                 }
             }
-            btri4s(A, B, C, D, jmax + 1, 0, jmax - 1);
+            btri4s(AArr, BArr, CArr, DArr, jmax, 0, jmax);
             for (int k = 0; k < 4; k++) {
                 for (int j = 0; j < jmax; j++) {
                     S(i, j, k) = D(j, k);
@@ -973,8 +981,33 @@ struct Mesh {
         advance();
     }
 
-    void solve() {
+    double CalcError() {
+        double err = 0;
+        for (int i = 0; i < imax; i++) {
+            for (int j = 0; j < jmax; j++) {
+                err += pow(S(i,j,3),2);
+            }
+        }
+        err = sqrt(err);
+        return err;
+    }
 
+    void solve() {
+        int iter = 0;
+        double err0, errS;
+        ZeroRHS();
+        RHS();
+        smooth(QArr, SArr, JacobianArr, XiXArr, XiYArr,
+            EtaXArr, EtaYArr, imax, jmax, s2Arr,
+            rspec, qv, dd,
+            EPSE, gamma, FSMACH, deltaT);
+        err0 = CalcError();
+        errS = err0;
+        while (errS / err0 > pow(10, -6)) {
+            step();
+            iter += 1;
+            errS = CalcError();
+        }
     }
  };
 
