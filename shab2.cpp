@@ -7,7 +7,7 @@
 #include <sstream>
 #define M_PI 3.14159265358979323846 /* pi */
 
-#include<math.h>
+#include <math.h>
 int smoothx(double* q, double* xx, double* xy, int id, int jd, double* a,
     double* b, double* c, int j, double* jac, double* drr, double* drp,
     double* rspec, double* qv, double* dd,
@@ -472,7 +472,7 @@ struct Mesh {
     double* drr;
     double* drp;
 
-    Mesh(const char* paramFilename = nullptr) : FSMACH(0.9), gamma(1.4), EPSE(0.06), deltaT(1), alpha_inf(0), imax(121), jmax(41), 
+    Mesh(const char* paramFilename = nullptr) : FSMACH(0.9), gamma(1.4), EPSE(0.06), deltaT(1), alpha_inf(0), p_inf(101325), imax(121), jmax(41), iTEL(21), iTEU(101), iLE(61), rho_inf(1.225),
         xFilename("x.csv"), yFilename("y.csv") {
         if (paramFilename) {
             parseParams(paramFilename);
@@ -506,6 +506,7 @@ struct Mesh {
         dd = (double*)malloc((unsigned)(std::max(imax, jmax)) * sizeof(double));
         drr = (double*)malloc((unsigned)(std::max(imax, jmax)) * sizeof(double));
         drp = (double*)malloc((unsigned)(std::max(imax, jmax)) * sizeof(double));
+        max_ij = std::max(imax, jmax);
     }
 
     ~Mesh() {
@@ -563,6 +564,7 @@ struct Mesh {
 
     // function that reads csv files (for the grid)
     double* parseCSV(const char* filename) {
+        std::cout << "parseCSV " << filename << std::endl;
         double* arr = (double*)malloc(jmax * imax * sizeof(double));
 
         std::ifstream  data(filename);
@@ -577,59 +579,121 @@ struct Mesh {
                 lineStream >> arr[row * imax + col];
                 char c = ' ';
                 do { lineStream >> c; } while (c != ',' && !lineStream.eof());
-                if (col == 5 && row == 9) {
-                    std::cout << "row = " << row << ", " << "col = " << col << " => " << arr[row * imax + col] << std::endl;
-                }
                 col++;
             }
             assert(col == imax);
             row++;
         }
         assert(row == jmax);
+        std::cout << "n rows: " << row << std::endl;
         return arr;
     };
 
-    double& x(int i, int j) { return xArr[offset2D(i, j)]; }
-    double& y(int i, int j) { return yArr[offset2D(i, j)]; }
-    double& xXi(int i, int j) { return xXiArr[offset2D(i, j)]; }
-    double& xEta(int i, int j) { return xEtaArr[offset2D(i, j)]; }
-    double& yXi(int i, int j) { return yXiArr[offset2D(i, j)]; }
-    double& yEta(int i, int j) { return yEtaArr[offset2D(i, j)]; }
-    double& Jacobian(int i, int j) { return JacobianArr[offset2D(i, j)]; }
-    double& invJacobian(int i, int j) { return invJacobianArr[offset2D(i, j)]; }
-    double& XiX(int i, int j) { return XiXArr[offset2D(i, j)]; }
-    double& XiY(int i, int j) { return XiYArr[offset2D(i, j)]; }
-    double& EtaX(int i, int j) { return EtaXArr[offset2D(i, j)]; }
-    double& EtaY(int i, int j) { return EtaYArr[offset2D(i, j)]; }
-    double& u(int i, int j) { return uArr[offset2D(i, j)]; }
-    double& v(int i, int j) { return vArr[offset2D(i, j)]; }
-    double& rho(int i, int j) { return rhoArr[offset2D(i, j)]; }
-    double& e(int i, int j) { return eArr[offset2D(i, j)]; }
-    double& Q(int i, int j, int k) { return QArr[offset3D(i, j, k)]; }
-    double& S(int i, int j, int k) { return SArr[offset3D(i, j, k)]; }
-    double& W(int i, int j) { return WArr[offset2D(i, j)]; }
-    double& B(int i, int j, int k) { return BArr[offset3D(i, j, k)]; }
-    double& A(int i, int j, int k) { return AArr[offset3D(i, j, k)]; }
-    double& C(int i, int j, int k) { return CArr[offset3D(i, j, k)]; }
-    double& s2(int i, int j) { return s2Arr[offset2D(i, j)]; }
-    double& D(int i, int j) { return DArr[offset2D(i, j)]; }
+    int max_ij;
+    double& x(int i, int j) { return xArr[offset2D(i, j, imax)]; }
+    double& y(int i, int j) { return yArr[offset2D(i, j, imax)]; }
+    double& xXi(int i, int j) { return xXiArr[offset2D(i, j, imax)]; }
+    double& xEta(int i, int j) { return xEtaArr[offset2D(i, j, imax)]; }
+    double& yXi(int i, int j) { return yXiArr[offset2D(i, j, imax)]; }
+    double& yEta(int i, int j) { return yEtaArr[offset2D(i, j, imax)]; }
+    double& Jacobian(int i, int j) { return JacobianArr[offset2D(i, j, imax)]; }
+    double& invJacobian(int i, int j) { return invJacobianArr[offset2D(i, j, imax)]; }
+    double& XiX(int i, int j) { return XiXArr[offset2D(i, j, imax)]; }
+    double& XiY(int i, int j) { return XiYArr[offset2D(i, j, imax)]; }
+    double& EtaX(int i, int j) { return EtaXArr[offset2D(i, j, imax)]; }
+    double& EtaY(int i, int j) { return EtaYArr[offset2D(i, j, imax)]; }
+    double& u(int i, int j) { return uArr[offset2D(i, j, imax)]; }
+    double& v(int i, int j) { return vArr[offset2D(i, j, imax)]; }
+    double& rho(int i, int j) { return rhoArr[offset2D(i, j, imax)]; }
+    double& e(int i, int j) { return eArr[offset2D(i, j, imax)]; }
+    double& Q(int i, int j, int k) { return QArr[offset3D(i, j, k, imax, jmax)]; }
+    double& S(int i, int j, int k) { return SArr[offset3D(i, j, k, imax, jmax)]; }
+    double& W(int i, int j) { return WArr[offset2D(i, j, imax)]; }
+    double& B(int i, int j, int k) { return BArr[offset3D(i, j, k, max_ij, 4)]; }
+    double& A(int i, int j, int k) { return AArr[offset3D(i, j, k, max_ij, 4)]; }
+    double& C(int i, int j, int k) { return CArr[offset3D(i, j, k, max_ij, 4)]; }
+    double& s2(int i, int j) { return s2Arr[offset2D(i, j, imax)]; }
+    double& D(int i, int j) { return DArr[offset2D(i, j, imax)]; }
 
 
 
-    int offset2D(int i, int j) {
-        if (!(i > 0 && i <= jmax)) {
+    int offset2D(int i, int j, int ni) {
+        if (!(i >= 0 && i < imax)) {
             std::cout << "got bad i = " << i << std::endl;
             assert(true);
         }
-        if (!(j > 0 && j <= imax)) {
+        if (!(j >= 0 && j < jmax)) {
             std::cout << "got bad j = " << j << std::endl;
             assert(true);
         }
-        return j * jmax + i;
+        return j * ni + i;
     }
 
-    int offset3D(int i, int j, int k) {
-        return (k * imax + j * jmax + i);
+    int offset3D(int i, int j, int k, int ni, int nj) {
+        return (k * nj + j) * ni + i;
+    }
+
+    void MetricCoeffXi(int j) {
+        // 1st order central difference operator
+        for (int i = 0; i < imax; i++) {
+            if (i > 0 && i < imax - 1) {
+                xXi(i, j) = 0.5 * (x(i + 1, j) - x(i - 1, j));
+                yXi(i, j) = 0.5 * (y(i + 1, j) - y(i - 1, j));
+            }
+            else {
+                // 1st order forward & backward diff
+                if (i == 0) {
+                    xXi(i, j) = x(i + 1, j) - x(i, j);//0.5 * (-x(i + 2, j) + 4 * x(i + 1, j) - 3 * x(i, j));
+                    yXi(i, j) = y(i + 1, j) - y(i, j);//0.5 * (-y(i + 2, j) + 4 * y(i + 1, j) - 3 * y(i, j));
+                }
+                else { // i == imax
+                    xXi(i, j) = x(i, j) - x(i - 1, j);//0.5 * (x(i - 2, j) - 4 * x(i - 1, j) + 3 * x(i, j));
+                    yXi(i, j) = y(i, j) - y(i - 1, j);//0.5 * (y(i - 2, j) - 4 * y(i - 1, j) + 3 * y(i, j));
+                }
+            }
+        }
+    }
+
+    void MetricCoeffEta(int i) {
+        // 1st order central difference operator
+        for (int j = 0; j < jmax; j++) {
+            if (j > 0 && j < jmax - 1) {
+                xEta(i, j) = 0.5 * (x(i, j + 1) - x(i, j - 1));
+                yEta(i, j) = 0.5 * (y(i, j + 1) - y(i, j - 1));
+            }
+            else {
+                // 1st order forward & backward diff
+                if (j == 0) {
+                    xEta(i, j) = x(i, j + 1) - x(i, j);//0.5 * (-x(i, j + 2) + 4 * x(i, j + 1) - 3 * x(i, j));
+                    yEta(i, j) = y(i, j + 1) - y(i, j);//0.5 * (-y(i, j + 2) + 4 * y(i, j + 1) - 3 * y(i, j));
+                }
+                else { // j > 1 (j = jmax)
+                    xEta(i, j) = x(i, j) - x(i, j - 1);//0.5 * (x(i, j - 2) - 4 * x(i, j - 1) + 3 * x(i, j));
+                    yEta(i, j) = y(i, j) - y(i, j - 1);//0.5 * (y(i, j - 2) - 4 * y(i, j - 1) + 3 * y(i, j));
+                }
+            }
+        }
+    }
+
+    void MetricCoeffFin() {
+        for (int i = 0; i < imax; i++) {
+            MetricCoeffEta(i);
+            for (int j = 0; j < jmax; j++) {
+                MetricCoeffXi(j);
+                Jacobian(i, j) = 1 / (xXi(i, j) * yEta(i, j) - yXi(i, j) * xEta(i, j));
+                //std::cout << "J = " << Jacobian(i, j) << std::endl;
+                invJacobian(i, j) = xXi(i, j) * yEta(i, j) - yXi(i, j) * xEta(i, j);
+                XiX(i, j) = Jacobian(i, j) * yEta(i, j);
+                XiY(i, j) = -Jacobian(i, j) * xEta(i, j);
+                EtaX(i, j) = -Jacobian(i, j) * yXi(i, j);
+                EtaY(i, j) = Jacobian(i, j) * xXi(i, j);
+            }
+        }
+        //outputxEta("xEta.csv");
+        //outputyEta("yEta.csv");
+        //outputxXi("xXi.csv");
+        //outputyXi("yXi.csv");
+        //outputJ("J.csv");
     }
 
     void FreeStream() {
@@ -645,63 +709,7 @@ struct Mesh {
                 Q(i, j, 1) = rho_inf * u(i, j);
                 Q(i, j, 2) = rho_inf * v(i, j);
                 Q(i, j, 3) = e;
-            }
-       }
-    }
-
-    void MetricCoeffXi(int j) {
-        // 2nd order central difference operator
-        for (int i = 1; i <= jmax; i++) {
-            if (i > 1 && i < jmax) {
-                xXi(i, j) = 0.5 * (x(i + 1, j) - x(i - 1, j));
-                yXi(i, j) = 0.5 * (y(i + 1, j) - y(i - 1, j));
-            }
-            else {
-                // second order derive
-                if (i == 1) {
-                    xXi(i, j) = 0.5 * (-x(i + 2, j) + 4 * x(i + 1, j) - 3 * x(i, j));
-                    yXi(i, j) = 0.5 * (-y(i + 2, j) + 4 * y(i + 1, j) - 3 * y(i, j));
-                }
-                else { // i == imax
-                    xXi(i, j) = 0.5 * (x(i - 2, j) - 4 * x(i - 1, j) + 3 * x(i, j));
-                    yXi(i, j) = 0.5 * (y(i - 2, j) - 4 * y(i - 1, j) + 3 * y(i, j));
-                }
-            }
-        }
-    }
-
-    void MetricCoeffEta(int i) {
-        // 2nd order central difference operator
-        for (int j = 1; j <= imax; j++) {
-            if (i > 1 && i < imax) {
-                xEta(i, j) = 0.5 * (x(i, j + 1) - x(i, j - 1));
-                yEta(i, j) = 0.5 * (y(i, j + 1) - y(i, j - 1));
-            }
-            else {
-                // second order derive
-                if (i == 1) {
-                    xEta(i, j) = 0.5 * (-x(i, j + 2) + 4 * x(i, j + 1) - 3 * x(i, j));
-                    yEta(i, j) = 0.5 * (-y(i, j + 2) + 4 * y(i, j + 1) - 3 * y(i, j));
-                }
-                else { // i == imax
-                    xEta(i, j) = 0.5 * (x(i, j - 2) - 4 * x(i, j - 1) + 3 * x(i, j));
-                    yEta(i, j) = 0.5 * (y(i, j - 2) - 4 * y(i, j - 1) + 3 * y(i, j));
-                }
-            }
-        }
-    }
-
-    void MetricCoeffFin() {
-        for (int i = 1; i <= jmax; i++) {
-            MetricCoeffEta(i);
-            for (int j = 1; j <= imax; j++) {
-                MetricCoeffXi(j);
-                Jacobian(i, j) = 1 / (xXi(i, j) * yEta(i, j) - yXi(i, j) * xEta(i, j));
-                invJacobian(i, j) = xXi(i, j) * yEta(i, j) - yXi(i, j) * xEta(i, j);
-                XiX(i, j) = Jacobian(i, j) * yEta(i, j);
-                XiY(i, j) = -Jacobian(i, j) * xEta(i, j);
-                EtaX(i, j) = -Jacobian(i, j) * yXi(i, j);
-                EtaY(i, j) = Jacobian(i, j) * xXi(i, j);
+                //std::cout << "Q(" << i << "," << j << ",3) = " << Q(i, j, 3) << std::endl;
             }
         }
     }
@@ -710,14 +718,19 @@ struct Mesh {
         double rho01, rhoTEL, rhoTEU, uTEU, uTEL, vTEU, vTEL, p0, pTEL, pTEU, Jacobian0, U;
         // Adiabetic wall: j = jmin, i = itel...iteu
         for (int i = iTEL; i <= iTEU; i++) {
+            Jacobian0 = xXi(i, 0) * yEta(i, 0) - yXi(i, 0) * xEta(i, 0);
+            std::cout << "J = " << Jacobian0 << std::endl;
             Q(i, 0, 0) = Q(i, 1, 0);
-            rho01 = EtaY(i, 0) * XiX(i, 0) - XiY(i, 0) * EtaX(i, 0);
+            rho01 = Q(i, 0, 0);
+            std::cout << "rho01 = " << rho01 << std::endl;
             U = XiX(i, 1) * Q(i, 1, 1) / rho01 + XiY(i, 1) * Q(i, 1, 2) / rho01;
+            std::cout << "EtaY = " << EtaY(i, 0) << std::endl;
             Q(i, 0, 1) = EtaY(i, 0) * U * rho01 / Jacobian0;
             Q(i, 0, 2) = -EtaX(i, 0) * U * rho01 / Jacobian0;
             p0 = (gamma - 1) * (Q(i, 1, 3) - 0.5 * rho01 * (pow(Q(i, 1, 1) / rho01, 2) + pow(Q(i, 1, 2) / rho01, 2)));
             Q(i, 0, 3) = p0 / (gamma - 1) + 0.5 * rho01 * (pow(Q(i, 0, 1) / rho01, 2) + pow(Q(i, 0, 2) / rho01, 2));
         }
+
         // Trailing Edeg
         rhoTEL = Q(iTEL, 0, 0);
         rhoTEU = Q(iTEU, 0, 0);
@@ -736,11 +749,12 @@ struct Mesh {
         for (int k = 0; k < 4; k++) {
             Q(iTEU, 0, k) = Q(iTEL, 0, k);
         }
+
         // Wake
-        for (int i = 0; i < iTEL; i++) {
+        for (int i = 1; i < iTEL; i++) {
             for (int k = 0; k < 4; k++) {
                 Q(i, 0, k) = 0.5 * (Q(i, 1, k) + Q(imax - 1, 1, k));
-                Q(imax - -1 - i, 0, k) = Q(i, 0, k);
+                Q(imax - 1 - i, 0, k) = Q(i, 0, k);
             }
         }
         // outflow
@@ -778,6 +792,7 @@ struct Mesh {
             for (int i = 1; i < imax - 1; i++) {
                 for (int k = 0; k < 4; k++) {
                     S(i, j, k) += -0.5*(W(i + 1, k) - W(i - 1, k));
+                    //std::cout << "S(" << i << "," << j << "," << k << ") = " << S(i, j, k) << std::endl;
                 }
             }
         }
@@ -802,32 +817,30 @@ struct Mesh {
     }
 
     void LHSX(int j) {
-        double phi, theta, gamma1, gamma2, beta, kx, ky;
-        int max_ij;
+        double phi_2, theta, gamma1, gamma2, beta, kx, ky;
         int n, m;
         for (int i = 0; i < imax; i++) {
-            phi = 0.5 * (gamma - 1) * (pow(u(i, j), 2) + pow(v(i, j), 2));
+            phi_2 = 0.5 * (gamma - 1) * (pow(u(i, j), 2) + pow(v(i, j), 2));
             kx = XiX(i, j);
             ky = XiY(i, j);
             theta = kx * u(i, j) + ky * v(i, j);
             gamma1 = gamma - 1;
             gamma2 = gamma - 2;
-            beta = gamma * Q(i, j, 3) / Q(i, j, 0) - pow(phi, 2);
-            max_ij = std::max(imax, jmax);
+            beta = gamma * Q(i, j, 3) / Q(i, j, 0) - phi_2;
 
             B(i, 0, 0) = 0;
             B(i, 0, 1) = kx;
             B(i, 0, 2) = ky;
             B(i, 0, 3) = 0;
-            B(i, 1, 0) = kx * pow(phi, 2) - u(i, j) * theta;
+            B(i, 1, 0) = kx * phi_2 - u(i, j) * theta;
             B(i, 1, 1) = theta - kx * gamma2 * u(i, j);
             B(i, 1, 2) = ky * u(i, j) - gamma1 * kx * v(i, j);
             B(i, 1, 3) = kx * gamma1;
-            B(i, 2, 0) = ky * pow(phi, 2) - v(i, j) * theta;
+            B(i, 2, 0) = ky * phi_2 - v(i, j) * theta;
             B(i, 2, 1) = kx * v(i, j) - ky * gamma1 * u(i, j);
             B(i, 2, 2) = theta - ky * gamma2 * v(i, j);
             B(i, 2, 3) = ky * gamma1;
-            B(i, 3, 0) = theta * (pow(phi, 2) - beta);
+            B(i, 3, 0) = theta * (phi_2 - beta);
             B(i, 3, 1) = kx * beta - gamma1 * u(i, j) * theta;
             B(i, 3, 2) = ky * beta - gamma1 * v(i, j) * theta;
             B(i, 3, 3) = gamma * theta;
@@ -862,35 +875,33 @@ struct Mesh {
     }
 
     void LHSY(int i) {
-        double phi, theta, gamma1, gamma2, beta, kx, ky;
-        int max_ij;
+        double phi_2, theta, gamma1, gamma2, beta, kx, ky;
         int n, m;
-        for (int j = 0; i < jmax; j++) {
-            phi = 0.5 * (gamma - 1) * (pow(u(i, j), 2) + pow(v(i, j), 2));
+        for (int j = 0; j < jmax; j++) {
+            phi_2 = 0.5 * (gamma - 1) * (pow(u(i, j), 2) + pow(v(i, j), 2));
             kx = EtaX(i, j);
             ky = EtaY(i, j);
             theta = kx * u(i, j) + ky * v(i, j);
             gamma1 = gamma - 1;
             gamma2 = gamma - 2;
-            beta = gamma * Q(i, j, 3) / Q(i, j, 0) - pow(phi, 2);
-            max_ij = std::max(imax, jmax);
+            beta = gamma * Q(i, j, 3) / Q(i, j, 0) - phi_2;
 
-            B(i, 0, 0) = 0;
-            B(i, 0, 1) = kx;
-            B(i, 0, 2) = ky;
-            B(i, 0, 3) = 0;
-            B(i, 1, 0) = kx * pow(phi, 2) - u(i, j) * theta;
-            B(i, 1, 1) = theta - kx * gamma2 * u(i, j);
-            B(i, 1, 2) = ky * u(i, j) - gamma1 * kx * v(i, j);
-            B(i, 1, 3) = kx * gamma1;
-            B(i, 2, 0) = ky * pow(phi, 2) - v(i, j) * theta;
-            B(i, 2, 1) = kx * v(i, j) - ky * gamma1 * u(i, j);
-            B(i, 2, 2) = theta - ky * gamma2 * v(i, j);
-            B(i, 2, 3) = ky * gamma1;
-            B(i, 3, 0) = theta * (pow(phi, 2) - beta);
-            B(i, 3, 1) = kx * beta - gamma1 * u(i, j) * theta;
-            B(i, 3, 2) = ky * beta - gamma1 * v(i, j) * theta;
-            B(i, 3, 3) = gamma * theta;
+            B(j, 0, 0) = 0;
+            B(j, 0, 1) = kx;
+            B(j, 0, 2) = ky;
+            B(j, 0, 3) = 0;
+            B(j, 1, 0) = kx * phi_2 - u(i, j) * theta;
+            B(j, 1, 1) = theta - kx * gamma2 * u(i, j);
+            B(j, 1, 2) = ky * u(i, j) - gamma1 * kx * v(i, j);
+            B(j, 1, 3) = kx * gamma1;
+            B(j, 2, 0) = ky * phi_2 - v(i, j) * theta;
+            B(j, 2, 1) = kx * v(i, j) - ky * gamma1 * u(i, j);
+            B(j, 2, 2) = theta - ky * gamma2 * v(i, j);
+            B(j, 2, 3) = ky * gamma1;
+            B(j, 3, 0) = theta * (phi_2 - beta);
+            B(j, 3, 1) = kx * beta - gamma1 * u(i, j) * theta;
+            B(j, 3, 2) = ky * beta - gamma1 * v(i, j) * theta;
+            B(j, 3, 3) = gamma * theta;
 
             for (n = 0; n < 4; n++) {
                 for (m = 0; m < 4; m++) {
@@ -952,7 +963,7 @@ struct Mesh {
                     D(i, k) = S(i, j, k);
                 }
             }
-            btri4s(AArr, BArr, CArr, DArr, imax, 0, imax);
+            btri4s(AArr, BArr, CArr, DArr, imax, 0, imax - 1);
             for (int k = 0; k < 4; k++) {
                 for (int i = 0; i < imax; i++) {
                     S(i, j, k) = D(i, k);
@@ -963,7 +974,7 @@ struct Mesh {
         for (int i = 0; i < imax; i++) {
             LHSY(i);
             smoothy(QArr, EtaXArr, EtaYArr, imax, jmax, AArr,
-                BArr, CArr, j, JacobianArr, drr, drp,
+                BArr, CArr, i, JacobianArr, drr, drp,
                 rspec, qv, dd,
                 EPSE, gamma, FSMACH, deltaT);
             for (int k = 0; k < 4; k++) {
@@ -971,7 +982,7 @@ struct Mesh {
                     D(j, k) = S(i, j, k);
                 }
             }
-            btri4s(AArr, BArr, CArr, DArr, jmax, 0, jmax);
+            btri4s(AArr, BArr, CArr, DArr, jmax, 0, jmax - 1);
             for (int k = 0; k < 4; k++) {
                 for (int j = 0; j < jmax; j++) {
                     S(i, j, k) = D(j, k);
@@ -985,45 +996,172 @@ struct Mesh {
         double err = 0;
         for (int i = 0; i < imax; i++) {
             for (int j = 0; j < jmax; j++) {
-                err += pow(S(i,j,3),2);
+                for (int k = 0; k < 4; k++) {
+                    err += pow(S(i, j, k), 2);
+                    //std::cout << i << "," << j << "," << k << "=> " << err << " " << S(i, j, k) << std::endl;
+                }
             }
         }
         err = sqrt(err);
         return err;
     }
 
+    void init() {
+        for (int i = 0; i < imax; i++) {
+            MetricCoeffEta(i);
+        }
+        for (int j = 0; j < jmax; j++) {
+            MetricCoeffXi(j);
+        }
+        MetricCoeffFin();
+        FreeStream();
+        BoundaryConds();
+
+    }
+
     void solve() {
-        int iter = 0;
+        init();
+        //outputQ0("Q0.csv");
+        //outputQ1("Q1.csv");
+        int n_iter = 0;
         double err0, errS;
+
         ZeroRHS();
         RHS();
         smooth(QArr, SArr, JacobianArr, XiXArr, XiYArr,
             EtaXArr, EtaYArr, imax, jmax, s2Arr,
             rspec, qv, dd,
             EPSE, gamma, FSMACH, deltaT);
+        outputS0("S0.csv");
+        outputS1("S1.csv");
+        outputS2("S2.csv");
+        outputS3("S3.csv");
         err0 = CalcError();
         errS = err0;
-        while (errS / err0 > pow(10, -6)) {
+        std::cout << "err0 = " << err0 << std::endl;
+        std::cout << "errS = " << errS << std::endl;
+        do {
             step();
-            iter += 1;
+            n_iter += 1;
             errS = CalcError();
+            std::cout << "n_iter =" << n_iter << " ; errS = " << errS << std::endl;
+        } while (errS / err0 > pow(10, -6));
+    }
+
+    void outputQ0(const char* filename) {
+        std::ofstream f(filename);
+        for (int j = jmax - 1; j >= 0; j--) {
+            for (int i = 0; i < imax; i++) {
+                f << Q(i, j, 0) << (i == imax ? "" : ", ");
+            }
+            f << std::endl;
         }
     }
+    void outputQ1(const char* filename) {
+        std::ofstream f(filename);
+        for (int j = jmax - 1; j >= 0; j--) {
+            for (int i = 0; i < imax; i++) {
+                f << Q(i, j, 1) << (i == imax ? "" : ", ");
+            }
+            f << std::endl;
+        }
+    }
+    void outputJ(const char* filename) {
+        std::ofstream f(filename);
+        for (int j = jmax - 1; j >= 0; j--) {
+            for (int i = 0; i < imax; i++) {
+                f << Jacobian(i, j) << (i == imax ? "" : ", ");
+            }
+            f << std::endl;
+        }
+    }
+    void outputxXi(const char* filename) {
+        std::ofstream f(filename);
+        for (int j = jmax - 1; j >= 0; j--) {
+            for (int i = 0; i < imax; i++) {
+                f << xXi(i, j) << (i == imax ? "" : ", ");
+            }
+            f << std::endl;
+        }
+    }
+    void outputxEta(const char* filename) {
+        std::ofstream f(filename);
+        for (int j = jmax - 1; j >= 0; j--) {
+            for (int i = 0; i < imax; i++) {
+                f << xEta(i, j) << (i == imax ? "" : ", ");
+            }
+            f << std::endl;
+        }
+    }
+    void outputyXi(const char* filename) {
+        std::ofstream f(filename);
+        for (int j = jmax - 1; j >= 0; j--) {
+            for (int i = 0; i < imax; i++) {
+                f << yXi(i, j) << (i == imax ? "" : ", ");
+            }
+            f << std::endl;
+        }
+    }
+    void outputyEta(const char* filename) {
+        std::ofstream f(filename);
+        for (int j = jmax - 1; j >= 0; j--) {
+            for (int i = 0; i < imax; i++) {
+                f << yEta(i, j) << (i == imax ? "" : ", ");
+            }
+            f << std::endl;
+        }
+    }
+    void outputS0(const char* filename) {
+        std::ofstream f(filename);
+        for (int j = jmax - 1; j >= 0; j--) {
+            for (int i = 0; i < imax; i++) {
+                f << S(i, j, 0) << (i == imax ? "" : ", ");
+            }
+            f << std::endl;
+        }
+    }
+    void outputS1(const char* filename) {
+        std::ofstream f(filename);
+        for (int j = jmax - 1; j >= 0; j--) {
+            for (int i = 0; i < imax; i++) {
+                f << S(i, j, 1) << (i == imax ? "" : ", ");
+            }
+            f << std::endl;
+        }
+    }
+    void outputS2(const char* filename) {
+        std::ofstream f(filename);
+        for (int j = jmax - 1; j >= 0; j--) {
+            for (int i = 0; i < imax; i++) {
+                f << S(i, j, 2) << (i == imax ? "" : ", ");
+            }
+            f << std::endl;
+        }
+    }
+    void outputS3(const char* filename) {
+        std::ofstream f(filename);
+        for (int j = jmax - 1; j >= 0; j--) {
+            for (int i = 0; i < imax; i++) {
+                f << S(i, j, 3) << (i == imax ? "" : ", ");
+            }
+            f << std::endl;
+        }
+    }
+
  };
 
 
-
 // main
-    int main(int argc, const char* argv[]) {
-        if (argc > 1) {
-            for (int i = 1; i < argc; i++) {
-                Mesh mesh(argv[i]);
-                mesh.solve();
-            }
-        }
-        else {
-            Mesh mesh;
+int main(int argc, const char* argv[]) {
+    if (argc > 1) {
+        for (int i = 1; i < argc; i++) {
+            Mesh mesh(argv[i]);
             mesh.solve();
         }
-        return 0;
-    };
+    }
+    else {
+        Mesh mesh;
+        mesh.solve();
+    }
+    return 0;
+};
