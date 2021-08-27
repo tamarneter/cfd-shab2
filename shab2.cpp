@@ -472,7 +472,7 @@ struct Mesh {
     double* drr;
     double* drp;
 
-    Mesh(const char* paramFilename = nullptr) : FSMACH(0.9), gamma(1.4), EPSE(0.06), deltaT(1), alpha_inf(0), p_inf(101325), imax(121), jmax(41), iTEL(21), iTEU(101), iLE(61), rho_inf(1.225),
+    Mesh(const char* paramFilename = nullptr) : FSMACH(0.9), gamma(1.4), EPSE(0.06), deltaT(0.001), alpha_inf(0), p_inf(101325), imax(121), jmax(41), iTEL(21), iTEU(101), iLE(61), rho_inf(1.225),
         xFilename("x.csv"), yFilename("y.csv") {
         if (paramFilename) {
             parseParams(paramFilename);
@@ -791,7 +791,7 @@ struct Mesh {
             }
             for (int i = 1; i < imax - 1; i++) {
                 for (int k = 0; k < 4; k++) {
-                    S(i, j, k) += -0.5*(W(i + 1, k) - W(i - 1, k));
+                    S(i, j, k) += -0.5 * (W(i + 1, k) - W(i - 1, k)) * deltaT;
                     //std::cout << "S(" << i << "," << j << "," << k << ") = " << S(i, j, k) << std::endl;
                 }
             }
@@ -809,7 +809,7 @@ struct Mesh {
                 }
                 for (int j = 1; j < jmax - 1; j++) {
                     for (int k = 0; k < 4; k++) {
-                        S(i, j, k) += -0.5 * (W(j + 1, k) - W(j - 1, k));
+                        S(i, j, k) += -0.5 * (W(j + 1, k) - W(j - 1, k)) * deltaT;
                     }
                 }
             }
@@ -844,32 +844,19 @@ struct Mesh {
             B(i, 3, 1) = kx * beta - gamma1 * u(i, j) * theta;
             B(i, 3, 2) = ky * beta - gamma1 * v(i, j) * theta;
             B(i, 3, 3) = gamma * theta;
-
-            for (n = 0; n < 4; n++) {
-                for (m = 0; m < 4; m++) {
-                    for (int i = 1; i < imax - 1; i++) {
-                        A(i, m, n) = -0.5 * B(i - 1, m, n);
-                        C(i, m, n) = 0.5 * B(i + 1, m, n);
-                    }
+        }
+        for (n = 0; n < 4; n++) {
+            for (m = 0; m < 4; m++) {
+                for (int i = 1; i < imax - 1; i++) {
+                    A(i, m, n) = -0.5 * B(i - 1, m, n);
+                    C(i, m, n) = 0.5 * B(i + 1, m, n);
                 }
             }
-            for (i = 1; i < imax - 1; i++) {
-                B(i, 0, 0) = 1.0;
-                B(i, 0, 1) = 0;
-                B(i, 0, 2) = 0;
-                B(i, 0, 3) = 0;
-                B(i, 1, 0) = 0;
-                B(i, 1, 1) = 1.0;
-                B(i, 1, 2) = 0;
-                B(i, 1, 3) = 0;
-                B(i, 2, 0) = 0;
-                B(i, 2, 1) = 0;
-                B(i, 2, 2) = 1.0;
-                B(i, 2, 3) = 0;
-                B(i, 3, 0) = 0;
-                B(i, 3, 1) = 0;
-                B(i, 3, 2) = 0;
-                B(i, 3, 3) = 1.0;
+        }
+        memset(BArr, 0, jmax * sizeof(double));
+        for (int i = 1; i < imax - 1; i++) {
+            for (int k = 0; k < 4; k++) {
+                B(i, k, k) = 1.0;
             }
         }
     }
@@ -902,32 +889,19 @@ struct Mesh {
             B(j, 3, 1) = kx * beta - gamma1 * u(i, j) * theta;
             B(j, 3, 2) = ky * beta - gamma1 * v(i, j) * theta;
             B(j, 3, 3) = gamma * theta;
-
-            for (n = 0; n < 4; n++) {
-                for (m = 0; m < 4; m++) {
-                    for (int j = 1; j < jmax - 1; j++) {
-                        A(j, m, n) = -0.5 * B(j - 1, m, n);
-                        C(j, m, n) = 0.5 * B(j + 1, m, n);
-                    }
+        }
+        for (n = 0; n < 4; n++) {
+            for (m = 0; m < 4; m++) {
+                for (int j = 1; j < jmax - 1; j++) {
+                    A(j, m, n) = -0.5 * B(j - 1, m, n);
+                    C(j, m, n) = 0.5 * B(j + 1, m, n);
                 }
             }
-            for (j = 1; j < jmax - 1; j++) {
-                B(j, 0, 0) = 1.0;
-                B(j, 0, 1) = 0;
-                B(j, 0, 2) = 0;
-                B(j, 0, 3) = 0;
-                B(j, 1, 0) = 0;
-                B(j, 1, 1) = 1.0;
-                B(j, 1, 2) = 0;
-                B(j, 1, 3) = 0;
-                B(j, 2, 0) = 0;
-                B(j, 2, 1) = 0;
-                B(j, 2, 2) = 1.0;
-                B(j, 2, 3) = 0;
-                B(j, 3, 0) = 0;
-                B(j, 3, 1) = 0;
-                B(j, 3, 2) = 0;
-                B(j, 3, 3) = 1.0;
+        }
+        memset(BArr, 0, imax * sizeof(double));
+        for (int j = 1; j < jmax - 1; j++) {
+            for (int k = 0; k < 4; k++) {
+                B(j, k, k) = 1.0;
             }
         }
     }
@@ -944,22 +918,23 @@ struct Mesh {
     }
 
     void step() {
+        double EPSI;
+        EPSI = 2.5 * EPSE;
         ZeroRHS();
         RHS();
         smooth(QArr, SArr, JacobianArr, XiXArr, XiYArr,
             EtaXArr, EtaYArr, imax, jmax, s2Arr,
             rspec, qv, dd,
             EPSE, gamma, FSMACH, deltaT);
-        
         // Xi 
-        for (int j = 0; j < jmax; j++) {
+        for (int j = 1; j < jmax - 1; j++) {
             LHSX(j);
             smoothx(QArr, XiXArr, XiYArr, imax, jmax, AArr,
                 BArr, CArr, j, JacobianArr, drr, drp,
                 rspec, qv, dd,
-                EPSE, gamma, FSMACH, deltaT);
+                EPSI, gamma, FSMACH, deltaT);
             for (int k = 0; k < 4; k++) {
-                for (int i = 0; i < imax; i++) {
+                for (int i = 1; i < imax - 1; i++) {
                     D(i, k) = S(i, j, k);
                 }
             }
@@ -970,21 +945,25 @@ struct Mesh {
                 }
             }
         }
+        outputS0("S0XI.csv");
+        outputS1("S1XI.csv");
+        outputS2("S2XI.csv");
+        outputS3("S3XI.csv");
         // Eta 
-        for (int i = 0; i < imax; i++) {
+        for (int i = 1; i < imax - 1; i++) {
             LHSY(i);
             smoothy(QArr, EtaXArr, EtaYArr, imax, jmax, AArr,
                 BArr, CArr, i, JacobianArr, drr, drp,
                 rspec, qv, dd,
-                EPSE, gamma, FSMACH, deltaT);
+                EPSI, gamma, FSMACH, deltaT);
             for (int k = 0; k < 4; k++) {
-                for (int j = 0; j < jmax; j++) {
+                for (int j = 1; j < jmax - 1; j++) {
                     D(j, k) = S(i, j, k);
                 }
             }
             btri4s(AArr, BArr, CArr, DArr, jmax, 0, jmax - 1);
             for (int k = 0; k < 4; k++) {
-                for (int j = 0; j < jmax; j++) {
+                for (int j = 1; j < jmax - 1; j++) {
                     S(i, j, k) = D(j, k);
                 }
             }
@@ -1003,6 +982,7 @@ struct Mesh {
             }
         }
         err = sqrt(err);
+        std::cout << "the error is: " << err << std::endl;
         return err;
     }
 
@@ -1046,6 +1026,10 @@ struct Mesh {
             errS = CalcError();
             std::cout << "n_iter =" << n_iter << " ; errS = " << errS << std::endl;
         } while (errS / err0 > pow(10, -6));
+        outputS0("S0S.csv");
+        outputS1("S1S.csv");
+        outputS2("S2S.csv");
+        outputS3("S3S.csv");
     }
 
     void outputQ0(const char* filename) {
